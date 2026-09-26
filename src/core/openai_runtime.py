@@ -8,6 +8,7 @@ Gemini Red Team dùng Google ADK trong agents/*.py — không đi qua file này.
 """
 from __future__ import annotations
 
+import asyncio
 from dataclasses import dataclass, field
 from typing import Any, Callable
 
@@ -19,6 +20,36 @@ from core.config import (
     blue_client_kwargs,
     red_openai_client_kwargs,
 )
+
+
+async def _create_with_retry(client, *, max_retries: int = 3, **kwargs):
+    """Call chat.completions.create with backoff on transient 429s.
+
+    Free-tier / shared-pool models (e.g. OpenRouter's liquid/lfm-*:free) get
+    rate-limited upstream fairly often; the provider tells us how long to wait
+    via Retry-After. A hard quota exhaustion will still fail after retries —
+    this only smooths over temporary contention, not an empty balance.
+    """
+    from openai import RateLimitError
+
+    delay = 1.0
+    for attempt in range(max_retries + 1):
+        try:
+            return client.chat.completions.create(**kwargs)
+        except RateLimitError as e:
+            if attempt == max_retries:
+                raise
+            retry_after = None
+            try:
+                retry_after = e.response.json()["error"]["metadata"].get(
+                    "retry_after_seconds"
+                )
+            except Exception:
+                pass
+            wait = float(retry_after) if retry_after else delay
+            print(f"  [rate-limited] retrying in {wait:.0f}s (attempt {attempt + 1}/{max_retries})...")
+            await asyncio.sleep(wait)
+            delay *= 2
 
 
 @dataclass
@@ -62,7 +93,8 @@ class OpenAIRunner:
             return block_msg
 
         client = self._client()
-        completion = client.chat.completions.create(
+        completion = await _create_with_retry(
+            client,
             model=self.model,
             messages=[
                 {"role": "system", "content": agent.instruction},
