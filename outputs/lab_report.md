@@ -2,7 +2,7 @@
 
 > File này **tự sinh** bởi `scripts/grade.py`. **Không** viết / sửa tay.
 
-- Generated (UTC): `2026-09-26T08:47:37.710077+00:00`
+- Generated (UTC): `2026-09-26T09:03:36.297205+00:00`
 - Framework: `google-adk`
 - Technical failure: **False**
 
@@ -51,7 +51,7 @@ tests/public/test_lab_contracts.py::test_detect_injection_basic
     warnings.warn(message, FutureWarning)
 
 -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-10 passed, 15 warnings in 1.51s
+10 passed, 15 warnings in 1.16s
 ```
 
 ## Notes

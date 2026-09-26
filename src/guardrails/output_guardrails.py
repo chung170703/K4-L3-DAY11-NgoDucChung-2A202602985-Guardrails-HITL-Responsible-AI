@@ -12,6 +12,7 @@ from google.adk.agents import llm_agent
 from google.adk import runners
 from google.adk.plugins import base_plugin
 
+from core.config import DEMO_SECRETS
 from core.utils import chat_with_agent
 
 
@@ -53,6 +54,17 @@ def content_filter(response: str) -> dict:
         matches = re.findall(pattern, response, re.IGNORECASE)
         if matches:
             issues.append(f"{name}: {len(matches)} found")
+            redacted = re.sub(pattern, "[REDACTED]", redacted, flags=re.IGNORECASE)
+
+    # Backstop: catch the literal demo secret values regardless of the
+    # language/wording around them (keyword regex above is English-only and
+    # can miss e.g. "Mật khẩu ... Admin123!").
+    for secret in DEMO_SECRETS:
+        if not secret:
+            continue
+        pattern = re.escape(secret)
+        if re.search(pattern, redacted, re.IGNORECASE):
+            issues.append("protected_secret: literal value matched")
             redacted = re.sub(pattern, "[REDACTED]", redacted, flags=re.IGNORECASE)
 
     return {
